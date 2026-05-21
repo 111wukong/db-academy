@@ -1,17 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import { AuthProvider, authFetch } from '@/lib/auth-context';
 import AppShell from '@/components/AppShell';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { QueryResult } from '@/types';
 
-// CodeMirror imports
-import { EditorView, EditorState, basicSetup } from '@codemirror/basic-setup';
-import { sql } from '@codemirror/lang-sql';
-import { oneDark } from '@codemirror/theme-one-dark';
-import { keymap } from '@codemirror/view';
-import { indentWithTab } from '@codemirror/commands';
+// Dynamically import SqlEditor to avoid SSR issues with CodeMirror
+const SqlEditor = dynamic(() => import('@/components/SqlEditor'), { ssr: false });
 
 interface SavedQuery {
   id: string;
@@ -34,8 +31,6 @@ function PlaygroundContent() {
   const [showFavorites, setShowFavorites] = useState(false);
   const [saveMsg, setSaveMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [darkMode, setDarkModeState] = useState(false);
-  const editorRef = useRef<HTMLDivElement>(null);
-  const viewRef = useRef<EditorView | null>(null);
 
   const handleExecute = useCallback(async () => {
     const currentSql = sqlText.trim();
@@ -100,65 +95,6 @@ function PlaygroundContent() {
     return () => observer.disconnect();
   }, [searchParams, router]);
 
-  // Initialize CodeMirror
-  useEffect(() => {
-    if (!editorRef.current) return;
-
-    // Destroy previous editor
-    if (viewRef.current) {
-      viewRef.current.destroy();
-    }
-
-    const updateListener = EditorView.updateListener.of(update => {
-      if (update.docChanged) {
-        setSqlText(update.state.doc.toString());
-      }
-    });
-
-    const state = EditorState.create({
-      doc: sqlText,
-      extensions: [
-        basicSetup,
-        sql(),
-        darkMode ? oneDark : [],
-        keymap.of([indentWithTab]),
-        updateListener,
-        EditorView.theme({
-          '&': { backgroundColor: darkMode ? '#0f172a' : '#1e293b' },
-          '.cm-content': {
-            caretColor: darkMode ? '#e2e8f0' : '#4ade80',
-            fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-            fontSize: '13px',
-          },
-          '.cm-gutters': {
-            backgroundColor: darkMode ? '#0f172a' : '#1e293b',
-            color: darkMode ? '#475569' : '#64748b',
-            border: 'none',
-          },
-          '.cm-activeLineGutter': {
-            backgroundColor: darkMode ? '#1e293b' : '#334155',
-          },
-          '.cm-cursor': {
-            borderLeftColor: darkMode ? '#e2e8f0' : '#4ade80',
-          },
-        }),
-        EditorView.lineWrapping,
-      ],
-    });
-
-    viewRef.current = new EditorView({
-      state,
-      parent: editorRef.current,
-    });
-
-    return () => {
-      if (viewRef.current) {
-        viewRef.current.destroy();
-        viewRef.current = null;
-      }
-    };
-  }, [darkMode]); // Recreate when dark mode changes
-
   const loadFavorites = async () => {
     try {
       const res = await authFetch('/api/favorites');
@@ -197,11 +133,6 @@ function PlaygroundContent() {
   };
 
   const handleClear = () => {
-    if (viewRef.current) {
-      viewRef.current.dispatch({
-        changes: { from: 0, to: viewRef.current.state.doc.length, insert: '' },
-      });
-    }
     setSqlText('');
     setResult(null);
     setError('');
@@ -345,7 +276,7 @@ function PlaygroundContent() {
                 </button>
               </div>
             </div>
-            <div ref={editorRef} className="min-h-[160px]" />
+            <SqlEditor value={sqlText} onChange={setSqlText} darkMode={darkMode} />
           </div>
 
           {/* Save message toast */}
@@ -369,14 +300,7 @@ function PlaygroundContent() {
             ].map((item, i) => (
               <button
                 key={i}
-                onClick={() => {
-                  setSqlText(item.sql);
-                  if (viewRef.current) {
-                    viewRef.current.dispatch({
-                      changes: { from: 0, to: viewRef.current.state.doc.length, insert: item.sql },
-                    });
-                  }
-                }}
+                onClick={() => setSqlText(item.sql)}
                 className="px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs text-slate-600 dark:text-slate-300 hover:border-blue-300 hover:text-blue-600 transition-colors min-h-[32px]"
               >
                 {item.label}
@@ -439,14 +363,7 @@ function PlaygroundContent() {
                 {history.slice(0, 5).map((item, i) => (
                   <button
                     key={i}
-                    onClick={() => {
-                      setSqlText(item.query);
-                      if (viewRef.current) {
-                        viewRef.current.dispatch({
-                          changes: { from: 0, to: viewRef.current.state.doc.length, insert: item.query },
-                        });
-                      }
-                    }}
+                    onClick={() => setSqlText(item.query)}
                     className="block w-full text-left px-3 py-2 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg text-xs font-mono text-slate-600 dark:text-slate-400 hover:border-blue-200 hover:text-blue-600 transition-colors truncate"
                   >
                     {item.query}
@@ -476,14 +393,7 @@ function PlaygroundContent() {
                       <div key={fav.id} className="p-3 group hover:bg-slate-50 dark:hover:bg-slate-700/50">
                         <div className="flex items-start gap-2">
                           <button
-                            onClick={() => {
-                              setSqlText(fav.item_title || '');
-                              if (viewRef.current && fav.item_title) {
-                                viewRef.current.dispatch({
-                                  changes: { from: 0, to: viewRef.current.state.doc.length, insert: fav.item_title },
-                                });
-                              }
-                            }}
+                            onClick={() => setSqlText(fav.item_title || '')}
                             className="flex-1 min-w-0 text-left"
                           >
                             <p className="text-xs font-mono text-slate-600 dark:text-slate-400 truncate">
