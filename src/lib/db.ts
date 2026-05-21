@@ -168,6 +168,74 @@ function initSchema(db: Database.Database): void {
       grade REAL,
       semester TEXT
     );
+
+    -- XP / Gamification tables
+    CREATE TABLE IF NOT EXISTS xp_events (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      amount INTEGER NOT NULL,
+      reason TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS badges (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      badge_type TEXT NOT NULL,
+      badge_data TEXT,
+      awarded_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(user_id, badge_type)
+    );
+
+    CREATE TABLE IF NOT EXISTS daily_streaks (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      current_streak INTEGER DEFAULT 0,
+      longest_streak INTEGER DEFAULT 0,
+      last_active_date TEXT
+    );
+
+    -- Challenge tables
+    CREATE TABLE IF NOT EXISTS challenges (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL,
+      difficulty TEXT CHECK(difficulty IN ('easy','medium','hard')),
+      module_id TEXT,
+      starter_sql TEXT,
+      expected_sql TEXT NOT NULL,
+      hint TEXT,
+      order_index INTEGER,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS challenge_attempts (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      challenge_id TEXT NOT NULL REFERENCES challenges(id) ON DELETE CASCADE,
+      submitted_sql TEXT NOT NULL,
+      passed INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    -- Learning path tables
+    CREATE TABLE IF NOT EXISTS learning_paths (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL,
+      target_role TEXT NOT NULL,
+      icon TEXT,
+      difficulty TEXT,
+      estimated_hours INTEGER,
+      order_index INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS path_modules (
+      id TEXT PRIMARY KEY,
+      path_id TEXT NOT NULL REFERENCES learning_paths(id) ON DELETE CASCADE,
+      module_id TEXT NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
+      order_index INTEGER NOT NULL,
+      required INTEGER DEFAULT 1
+    );
   `);
 }
 

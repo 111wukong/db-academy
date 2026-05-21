@@ -1,15 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { AuthProvider, authFetch } from '@/lib/auth-context';
+import { AuthProvider, useAuth, authFetch } from '@/lib/auth-context';
 import AppShell from '@/components/AppShell';
 import { useRouter } from 'next/navigation';
 
 function SettingsContent() {
   const router = useRouter();
+  const { darkMode, setDarkMode } = useAuth();
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
-  const [darkMode, setDarkMode] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -45,7 +45,7 @@ function SettingsContent() {
       const res = await authFetch('/api/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ display_name: displayName, bio, dark_mode: darkMode }),
+        body: JSON.stringify({ display_name: displayName, bio }),
       });
       const data = await res.json();
       if (res.ok) {
